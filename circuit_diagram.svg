@@ -1,12 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" width="1100" height="680" font-family="Inter, Segoe UI, Arial, sans-serif">
-  <rect width="1100" height="680" fill="#f8fafc"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 770" width="1100" height="770" font-family="Inter, Segoe UI, Arial, sans-serif">
+  <rect width="1100" height="770" fill="#f8fafc"/>
 
   <!-- Title -->
   <text x="550" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">
-    Intelligent Pothole Warning Road — Circuit Diagram (Arduino UNO + Buzzer)
+    Intelligent Pothole Warning Road — Circuit Diagram (Arduino UNO + Buzzer + OLED)
   </text>
   <text x="550" y="60" text-anchor="middle" font-size="13" fill="#475569">
-    IR Sensor (D2) • Buzzer (D6) • Red LED (D7) • Green LED (D8) • SG90 Servo (D9) • Common 5V &amp; GND Breadboard Rails
+    IR Sensor (D2) • Buzzer (D6) • Red LED (D7) • Green LED (D8) • SG90 Servo (D9) • GME12864-4 OLED (A4/A5 I2C)
   </text>
 
   <!-- 5V Power Bank -->
@@ -42,11 +42,13 @@
     <text x="190" y="26" text-anchor="middle" font-size="11" font-weight="700" fill="#c084fc">D6</text>
     <text x="226" y="26" text-anchor="middle" font-size="11" font-weight="700" fill="#60a5fa">D2</text>
 
-    <!-- Bottom Power Pins Header -->
-    <rect x="75" y="224" width="140" height="28" rx="4" fill="#0f172a"/>
-    <text x="108" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#ef4444">5V</text>
-    <text x="150" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#94a3b8">GND</text>
-    <text x="192" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#64748b">VIN</text>
+    <!-- Bottom Power & Analog (I2C) Pins Header -->
+    <rect x="38" y="224" width="210" height="28" rx="4" fill="#0f172a"/>
+    <text x="65" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#ef4444">5V</text>
+    <text x="105" y="242" text-anchor="middle" font-size="11" font-weight="700" fill="#94a3b8">GND</text>
+    <text x="142" y="242" text-anchor="middle" font-size="10" font-weight="700" fill="#64748b">VIN</text>
+    <text x="185" y="242" text-anchor="middle" font-size="10" font-weight="700" fill="#2dd4bf">A4</text>
+    <text x="225" y="242" text-anchor="middle" font-size="10" font-weight="700" fill="#eab308">A5</text>
   </g>
 
   <!-- IR Sensor Module -->
@@ -137,6 +139,23 @@
     <text x="82" y="110" text-anchor="middle" font-size="11" font-weight="700" fill="#334155">- (GND)</text>
   </g>
 
+  <!-- GME12864-4 OLED Display (128x64 I2C) -->
+  <g transform="translate(745, 585)">
+    <rect width="240" height="110" rx="8" fill="#1e3a8a" stroke="#172554" stroke-width="2.5"/>
+    <!-- Top 4-Pin I2C Header -->
+    <rect x="20" y="0" width="200" height="20" rx="3" fill="#0f172a"/>
+    <text x="40" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#94a3b8">GND</text>
+    <text x="90" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#ef4444">VCC</text>
+    <text x="145" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#eab308">SCL</text>
+    <text x="195" y="14" text-anchor="middle" font-size="10" font-weight="700" fill="#2dd4bf">SDA</text>
+    <!-- OLED Screen -->
+    <rect x="18" y="26" width="204" height="62" rx="4" fill="#090d16" stroke="#475569" stroke-width="1.5"/>
+    <text x="120" y="47" text-anchor="middle" font-size="11" font-weight="700" fill="#38bdf8">WARNING! POTHOLE AHEAD</text>
+    <text x="120" y="65" text-anchor="middle" font-size="12" font-weight="700" fill="#f8fafc">SLOW DOWN</text>
+    <text x="120" y="81" text-anchor="middle" font-size="9" fill="#94a3b8">GME12864-4 (0x3C I2C)</text>
+    <text x="120" y="103" text-anchor="middle" font-size="11" font-weight="700" fill="#e0f2fe">GME12864-4 OLED (128x64)</text>
+  </g>
+
   <!-- ==================== WIRING ==================== -->
 
   <!-- Breadboard Rail Bridges (connect top +5V/GND rails to bottom +5V/GND rails) -->
@@ -144,15 +163,15 @@
   <path d="M 1038 402 L 1038 538" fill="none" stroke="#1e293b" stroke-width="2.5"/>
 
   <!-- Power: Arduino 5V -> Breadboard +5V Rail -->
-  <path d="M 378 472 L 378 520 L 615 520" fill="none" stroke="#ef4444" stroke-width="3"/>
+  <path d="M 335 472 L 335 520 L 615 520" fill="none" stroke="#ef4444" stroke-width="3"/>
   <!-- Power: Arduino GND -> Breadboard GND Rail -->
-  <path d="M 420 472 L 420 538 L 615 538" fill="none" stroke="#1e293b" stroke-width="3"/>
+  <path d="M 375 472 L 375 538 L 615 538" fill="none" stroke="#1e293b" stroke-width="3"/>
 
   <!-- IR Sensor Wiring -->
   <!-- IR VCC -> Breadboard +5V -->
-  <path d="M 115 190 L 115 585 L 650 585 L 650 520" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+  <path d="M 115 190 L 115 650 L 650 650 L 650 520" fill="none" stroke="#ef4444" stroke-width="2.5"/>
   <!-- IR GND -> Breadboard GND -->
-  <path d="M 152 190 L 152 605 L 675 605 L 675 538" fill="none" stroke="#1e293b" stroke-width="2.5"/>
+  <path d="M 152 190 L 152 670 L 675 670 L 675 538" fill="none" stroke="#1e293b" stroke-width="2.5"/>
   <!-- IR OUT -> Arduino D2 -->
   <path d="M 190 190 L 190 205 L 496 205 L 496 228" fill="none" stroke="#2563eb" stroke-width="3"/>
 
@@ -165,34 +184,40 @@
   <path d="M 396 170 L 396 195 L 352 195 L 352 228" fill="none" stroke="#f97316" stroke-width="3"/>
 
   <!-- Red LED Wiring -->
-  <!-- Red LED + -> 220R -> Arduino D7 -->
   <path d="M 633 158 L 633 235" fill="none" stroke="#dc2626" stroke-width="2.5"/>
   <path d="M 633 285 L 633 325 L 424 325 L 424 228" fill="none" stroke="#dc2626" stroke-width="3"/>
-  <!-- Red LED - -> Breadboard GND Rail -->
   <path d="M 668 158 L 668 402" fill="none" stroke="#1e293b" stroke-width="2.5"/>
 
   <!-- Green LED Wiring -->
-  <!-- Green LED + -> 220R -> Arduino D8 -->
   <path d="M 778 158 L 778 235" fill="none" stroke="#16a34a" stroke-width="2.5"/>
   <path d="M 778 285 L 778 340 L 388 340 L 388 228" fill="none" stroke="#16a34a" stroke-width="3"/>
-  <!-- Green LED - -> Breadboard GND Rail -->
   <path d="M 813 158 L 813 402" fill="none" stroke="#1e293b" stroke-width="2.5"/>
 
   <!-- Buzzer Wiring -->
-  <!-- Buzzer + -> Arduino D6 -->
   <path d="M 947 228 L 947 352 L 460 352 L 460 228" fill="none" stroke="#9333ea" stroke-width="3"/>
-  <!-- Buzzer - -> Breadboard GND Rail -->
   <path d="M 997 228 L 997 402" fill="none" stroke="#1e293b" stroke-width="2.5"/>
 
+  <!-- GME12864-4 OLED Wiring -->
+  <!-- OLED GND -> Breadboard GND Rail -->
+  <path d="M 785 585 L 785 538" fill="none" stroke="#1e293b" stroke-width="2.5"/>
+  <!-- OLED VCC -> Breadboard +5V Rail -->
+  <path d="M 835 585 L 835 520" fill="none" stroke="#ef4444" stroke-width="2.5"/>
+  <!-- OLED SCL -> Arduino A5 -->
+  <path d="M 495 472 L 495 558 L 890 558 L 890 585" fill="none" stroke="#ca8a04" stroke-width="3"/>
+  <!-- OLED SDA -> Arduino A4 -->
+  <path d="M 455 472 L 455 572 L 940 572 L 940 585" fill="none" stroke="#0d9488" stroke-width="3"/>
+
   <!-- Wire Legend -->
-  <g transform="translate(40, 622)">
-    <rect width="1020" height="42" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
-    <circle cx="28" cy="21" r="6" fill="#ef4444"/><text x="40" y="25" font-size="12" fill="#334155">+5V Power</text>
-    <circle cx="145" cy="21" r="6" fill="#1e293b"/><text x="157" y="25" font-size="12" fill="#334155">GND (Common)</text>
-    <circle cx="280" cy="21" r="6" fill="#2563eb"/><text x="292" y="25" font-size="12" fill="#334155">D2: IR Sensor OUT</text>
-    <circle cx="445" cy="21" r="6" fill="#9333ea"/><text x="457" y="25" font-size="12" fill="#334155">D6: Buzzer (+)</text>
-    <circle cx="585" cy="21" r="6" fill="#dc2626"/><text x="597" y="25" font-size="12" fill="#334155">D7: Red LED (+)</text>
-    <circle cx="725" cy="21" r="6" fill="#16a34a"/><text x="737" y="25" font-size="12" fill="#334155">D8: Green LED (+)</text>
-    <circle cx="880" cy="21" r="6" fill="#f97316"/><text x="892" y="25" font-size="12" fill="#334155">D9: Servo SIG</text>
+  <g transform="translate(40, 712)">
+    <rect width="1020" height="44" rx="8" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+    <circle cx="24" cy="22" r="5" fill="#ef4444"/><text x="34" y="26" font-size="11" fill="#334155">+5V</text>
+    <circle cx="80" cy="22" r="5" fill="#1e293b"/><text x="90" y="26" font-size="11" fill="#334155">GND</text>
+    <circle cx="142" cy="22" r="5" fill="#2563eb"/><text x="152" y="26" font-size="11" fill="#334155">D2: IR OUT</text>
+    <circle cx="245" cy="22" r="5" fill="#9333ea"/><text x="255" y="26" font-size="11" fill="#334155">D6: Buzzer</text>
+    <circle cx="352" cy="22" r="5" fill="#dc2626"/><text x="362" y="26" font-size="11" fill="#334155">D7: Red LED</text>
+    <circle cx="468" cy="22" r="5" fill="#16a34a"/><text x="478" y="26" font-size="11" fill="#334155">D8: Green LED</text>
+    <circle cx="598" cy="22" r="5" fill="#f97316"/><text x="608" y="26" font-size="11" fill="#334155">D9: Servo SIG</text>
+    <circle cx="722" cy="22" r="5" fill="#0d9488"/><text x="732" y="26" font-size="11" fill="#334155">A4: OLED SDA</text>
+    <circle cx="852" cy="22" r="5" fill="#ca8a04"/><text x="862" y="26" font-size="11" fill="#334155">A5: OLED SCL</text>
   </g>
 </svg>

@@ -6,13 +6,9 @@
  *   - Red Warning LED (ON) & Green Normal LED (OFF)
  *   - Pulsing 5V Buzzer alarm
  *   - SG90 Servo Motor turning the warning sign +90 deg (Side 1) or -90 deg (Side 2)
- *     relative to its 90 deg center resting position
+ *     relative to its 90 deg center resting position, then returning to center
+ *     as soon as the car passes (IR sensors stop detecting)
  *   - GME12864-4 (SSD1306 128x64 I2C) OLED Display showing live status & direction
- *
- * Servo Angle Mapping (SG90 supports 0-180 degrees):
- *   - Center / Normal : 90 deg  (neutral position)
- *   - Side 1 (+90)    : 180 deg (faces Side 1 approach)
- *   - Side 2 (-90)    : 0 deg   (faces Side 2 approach)
  *
  * Required Libraries (install via Arduino IDE Library Manager):
  *   - Adafruit SSD1306
@@ -28,7 +24,6 @@
 #define SCREEN_WIDTH   128
 #define SCREEN_HEIGHT  64
 #define OLED_RESET     -1
-#define OLED_I2C_ADDR  0x3C  // Default I2C address for GME12864-4 (change to 0x3D if needed)
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 bool oledReady = false;
@@ -44,17 +39,23 @@ const int SERVO_PIN       = 9;  // SG90 Servo signal (orange) wire
 
 // -------------------- Configuration ----------------------
 // Most IR obstacle sensor modules (LM393/FC-51) output LOW when an object is detected.
-// Change to HIGH if your sensor module is active-HIGH.
+// Change to HIGH if your sensor module outputs HIGH when detecting a car.
 const int SENSOR_DETECTED = LOW;
+
+// Standard 2-pin active buzzers turn ON when BUZZER_PIN is HIGH.
+// Change BUZZER_ON_LEVEL to LOW if you have a 3-pin active-LOW buzzer module.
+const int BUZZER_ON_LEVEL  = HIGH;
+const int BUZZER_OFF_LEVEL = (BUZZER_ON_LEVEL == HIGH) ? LOW : HIGH;
 
 // SG90 positional servo range is 0..180 degrees.
 // Mount the sign board at the 90-degree midpoint so +90 turns to 180 and -90 turns to 0.
-const int SIGN_CENTER_ANGLE = 90;   // Normal state (neutral)
+const int SIGN_CENTER_ANGLE = 90;   // Normal / default state (neutral)
 const int SIGN_SIDE1_ANGLE  = 180;  // +90 deg from center (Side 1)
 const int SIGN_SIDE2_ANGLE  = 0;    // -90 deg from center (Side 2)
 
-// Hold the warning for 3 seconds after the vehicle clears the sensor.
-const unsigned long ALERT_HOLD_MS    = 3000;
+// Brief 200ms release delay after sensors clear so servo returns right after the car passes.
+// Set to 0 for immediate return with no debounce delay.
+const unsigned long ALERT_HOLD_MS    = 200;
 const unsigned long BEEP_INTERVAL_MS = 250;  // Buzzer beep toggle speed
 
 // -------------------- State Types & Variables ------------
@@ -69,6 +70,24 @@ AlertSide activeSide         = SIDE_NONE;
 bool buzzerOn                = false;
 unsigned long lastDetectTime = 0;
 unsigned long lastBeepTime   = 0;
+
+bool initOledDisplay() {
+  Wire.begin();
+  const uint8_t addresses[2] = {0x3C, 0x3D};
+
+  for (int i = 0; i < 2; i++) {
+    Wire.beginTransmission(addresses[i]);
+    if (Wire.endTransmission() == 0) {
+      Serial.print(F("OLED I2C device found at 0x"));
+      Serial.println(addresses[i], HEX);
+      if (display.begin(SSD1306_SWITCHCAPVCC, addresses[i])) {
+        return true;
+      }
+      Serial.println(F("display.begin() failed (check RAM or SSD1306 compatibility)."));
+    }
+  }
+  return false;
+}
 
 void showOledSplash() {
   if (!oledReady) return;
@@ -138,7 +157,7 @@ void setNormalState() {
   activeSide = SIDE_NONE;
   digitalWrite(GREEN_LED_PIN, HIGH);
   digitalWrite(RED_LED_PIN, LOW);
-  digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(BUZZER_PIN, BUZZER_OFF_LEVEL);
   buzzerOn = false;
   warningServo.write(SIGN_CENTER_ANGLE);
   showOledNormal();
@@ -154,7 +173,7 @@ void activateAlertForSide(AlertSide side, unsigned long now) {
 
   if (wasInactive) {
     buzzerOn = true;
-    digitalWrite(BUZZER_PIN, HIGH);
+    digitalWrite(BUZZER_PIN, BUZZER_ON_LEVEL);
     lastBeepTime = now;
   }
 
@@ -162,18 +181,20 @@ void activateAlertForSide(AlertSide side, unsigned long now) {
 }
 
 void setup() {
-  pinMode(IR_SENSOR_1_PIN, INPUT);
-  pinMode(IR_SENSOR_2_PIN, INPUT);
+  // INPUT_PULLUP prevents floating false triggers if an IR sensor is unplugged
+  pinMode(IR_SENSOR_1_PIN, INPUT_PULLUP);
+  pinMode(IR_SENSOR_2_PIN, INPUT_PULLUP);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
 
+  digitalWrite(BUZZER_PIN, BUZZER_OFF_LEVEL);
   warningServo.attach(SERVO_PIN);
   Serial.begin(9600);
 
-  oledReady = display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDR);
+  oledReady = initOledDisplay();
   if (!oledReady) {
-    Serial.println(F("WARNING: GME12864-4 OLED not found at 0x3C. Check A4/A5 wiring."));
+    Serial.println(F("WARNING: GME12864-4 OLED not found at 0x3C/0x3D. Check A4(SDA)/A5(SCL) & VCC/GND."));
   } else {
     showOledSplash();
     delay(1000);
@@ -217,13 +238,13 @@ void loop() {
     if (now - lastBeepTime >= BEEP_INTERVAL_MS) {
       lastBeepTime = now;
       buzzerOn = !buzzerOn;
-      digitalWrite(BUZZER_PIN, buzzerOn ? HIGH : LOW);
+      digitalWrite(BUZZER_PIN, buzzerOn ? BUZZER_ON_LEVEL : BUZZER_OFF_LEVEL);
     }
 
-    // Return to normal state once both sensors are clear for ALERT_HOLD_MS
+    // Return servo & alerts to default immediately after both IR sensors stop detecting
     if (!anyDetected && (now - lastDetectTime >= ALERT_HOLD_MS)) {
       setNormalState();
-      Serial.println(F("NORMAL: Road clear. Servo centered (90 deg), Green LED ON."));
+      Serial.println(F("NORMAL: Car passed. Servo centered (90 deg), Green LED ON."));
     }
   }
 

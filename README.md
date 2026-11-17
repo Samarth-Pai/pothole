@@ -20,7 +20,7 @@ An Arduino-based bidirectional smart road safety model that uses **two IR sensor
    - The **Green LED** turns **OFF**, **Red LED** turns **ON**, and the **5V Buzzer** pulses.
    - The **GME12864-4 OLED** displays **`WARNING! / POTHOLE AHEAD! / SLOW DOWN / Car: Side 2 (-90)`**.
 4. **Auto-Reset:**
-   - Once both sensors remain clear for 3 seconds (`ALERT_HOLD_MS`), the servo returns to center (**`90°`**), the Red LED and Buzzer turn **OFF**, the Green LED turns **ON**, and the OLED returns to **`ALL CLEAR`**.
+   - As soon as the car passes and both sensors stop detecting (`200 ms` debounce via `ALERT_HOLD_MS`), the servo returns to center (**`90°`**), the Red LED and Buzzer turn **OFF**, the Green LED turns **ON**, and the OLED returns to **`ALL CLEAR`**.
 
 > **Servo Angle Note:** An SG90 positional servo accepts angles from **`0°` to `180°`** (negative numbers are not supported by `Servo.write()`). Mounting the sign at the **`90°` midpoint** lets it turn **`+90°` (`180°`)** toward Side 1 and **`-90°` (`0°`)** toward Side 2.
 

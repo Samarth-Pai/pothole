@@ -1,15 +1,18 @@
 /*
  * Intelligent Pothole Warning Road (Arduino Based)
  * ------------------------------------------------
- * Detects an approaching vehicle near a pothole using an IR obstacle sensor
- * and warns the driver with:
+ * Uses TWO IR obstacle sensors (one on each side of the pothole) to detect
+ * approaching vehicles from either direction and warn drivers with:
  *   - Red Warning LED (ON) & Green Normal LED (OFF)
  *   - Pulsing 5V Buzzer alarm
- *   - SG90 Servo Motor raising the "POTHOLE AHEAD - SLOW DOWN" sign
- *   - GME12864-4 (SSD1306 128x64 I2C) OLED Display showing live road status
+ *   - SG90 Servo Motor turning the warning sign +90 deg (Side 1) or -90 deg (Side 2)
+ *     relative to its 90 deg center resting position
+ *   - GME12864-4 (SSD1306 128x64 I2C) OLED Display showing live status & direction
  *
- * When the road is clear, the sign lowers, the Red LED and Buzzer turn OFF,
- * the Green LED turns ON, and the OLED shows "ALL CLEAR / Drive Safely".
+ * Servo Angle Mapping (SG90 supports 0-180 degrees):
+ *   - Center / Normal : 90 deg  (neutral position)
+ *   - Side 1 (+90)    : 180 deg (faces Side 1 approach)
+ *   - Side 2 (-90)    : 0 deg   (faces Side 2 approach)
  *
  * Required Libraries (install via Arduino IDE Library Manager):
  *   - Adafruit SSD1306
@@ -31,11 +34,12 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 bool oledReady = false;
 
 // -------------------- Pin Definitions --------------------
-const int IR_SENSOR_PIN = 2;   // IR Sensor OUT pin
-const int BUZZER_PIN    = 6;   // 5V Active Buzzer (+) pin
-const int RED_LED_PIN   = 7;   // Red LED (+) via 220-ohm resistor
-const int GREEN_LED_PIN = 8;   // Green LED (+) via 220-ohm resistor
-const int SERVO_PIN     = 9;   // SG90 Servo signal (orange) wire
+const int IR_SENSOR_1_PIN = 2;  // Side 1 IR Sensor OUT pin
+const int IR_SENSOR_2_PIN = 3;  // Side 2 IR Sensor OUT pin
+const int BUZZER_PIN      = 6;  // 5V Active Buzzer (+) pin
+const int RED_LED_PIN     = 7;  // Red LED (+) via 220-ohm resistor
+const int GREEN_LED_PIN   = 8;  // Green LED (+) via 220-ohm resistor
+const int SERVO_PIN       = 9;  // SG90 Servo signal (orange) wire
 // Note: GME12864-4 OLED uses I2C pins A4 (SDA) and A5 (SCL) on Arduino UNO / UNO Mini
 
 // -------------------- Configuration ----------------------
@@ -43,17 +47,25 @@ const int SERVO_PIN     = 9;   // SG90 Servo signal (orange) wire
 // Change to HIGH if your sensor module is active-HIGH.
 const int SENSOR_DETECTED = LOW;
 
-// Adjust servo angles (0-180) to match how your warning sign is mounted.
-const int SIGN_DOWN_ANGLE = 0;   // Normal state (sign lowered)
-const int SIGN_UP_ANGLE   = 90;  // Warning state (sign raised)
+// SG90 positional servo range is 0..180 degrees.
+// Mount the sign board at the 90-degree midpoint so +90 turns to 180 and -90 turns to 0.
+const int SIGN_CENTER_ANGLE = 90;   // Normal state (neutral)
+const int SIGN_SIDE1_ANGLE  = 180;  // +90 deg from center (Side 1)
+const int SIGN_SIDE2_ANGLE  = 0;    // -90 deg from center (Side 2)
 
 // Hold the warning for 3 seconds after the vehicle clears the sensor.
 const unsigned long ALERT_HOLD_MS    = 3000;
 const unsigned long BEEP_INTERVAL_MS = 250;  // Buzzer beep toggle speed
 
-// -------------------- State Variables --------------------
+// -------------------- State Types & Variables ------------
+enum AlertSide {
+  SIDE_NONE = 0,
+  SIDE_1    = 1,
+  SIDE_2    = 2
+};
+
 Servo warningServo;
-bool alertActive             = false;
+AlertSide activeSide         = SIDE_NONE;
 bool buzzerOn                = false;
 unsigned long lastDetectTime = 0;
 unsigned long lastBeepTime   = 0;
@@ -92,7 +104,7 @@ void showOledNormal() {
   display.display();
 }
 
-void showOledAlert() {
+void showOledAlert(AlertSide side) {
   if (!oledReady) return;
   display.clearDisplay();
 
@@ -113,33 +125,45 @@ void showOledAlert() {
   display.print(F("SLOW DOWN"));
 
   display.setTextSize(1);
-  display.setCursor(16, 55);
-  display.print(F("Vehicle Detected"));
+  display.setCursor(13, 55);
+  if (side == SIDE_1) {
+    display.print(F("Car: Side 1 (+90)"));
+  } else {
+    display.print(F("Car: Side 2 (-90)"));
+  }
   display.display();
 }
 
 void setNormalState() {
+  activeSide = SIDE_NONE;
   digitalWrite(GREEN_LED_PIN, HIGH);
   digitalWrite(RED_LED_PIN, LOW);
   digitalWrite(BUZZER_PIN, LOW);
   buzzerOn = false;
-  warningServo.write(SIGN_DOWN_ANGLE);
+  warningServo.write(SIGN_CENTER_ANGLE);
   showOledNormal();
 }
 
-void startAlertState(unsigned long now) {
+void activateAlertForSide(AlertSide side, unsigned long now) {
+  bool wasInactive = (activeSide == SIDE_NONE);
+  activeSide = side;
+
   digitalWrite(GREEN_LED_PIN, LOW);
   digitalWrite(RED_LED_PIN, HIGH);
-  warningServo.write(SIGN_UP_ANGLE);
+  warningServo.write(side == SIDE_1 ? SIGN_SIDE1_ANGLE : SIGN_SIDE2_ANGLE);
 
-  buzzerOn = true;
-  digitalWrite(BUZZER_PIN, HIGH);
-  lastBeepTime = now;
-  showOledAlert();
+  if (wasInactive) {
+    buzzerOn = true;
+    digitalWrite(BUZZER_PIN, HIGH);
+    lastBeepTime = now;
+  }
+
+  showOledAlert(side);
 }
 
 void setup() {
-  pinMode(IR_SENSOR_PIN, INPUT);
+  pinMode(IR_SENSOR_1_PIN, INPUT);
+  pinMode(IR_SENSOR_2_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
@@ -156,23 +180,39 @@ void setup() {
   }
 
   setNormalState();
-  Serial.println(F("Intelligent Pothole Warning Road initialized."));
+  Serial.println(F("Intelligent Pothole Warning Road (Dual IR) initialized."));
 }
 
 void loop() {
   unsigned long now = millis();
-  bool vehicleDetected = (digitalRead(IR_SENSOR_PIN) == SENSOR_DETECTED);
+  bool side1Detected = (digitalRead(IR_SENSOR_1_PIN) == SENSOR_DETECTED);
+  bool side2Detected = (digitalRead(IR_SENSOR_2_PIN) == SENSOR_DETECTED);
+  bool anyDetected   = (side1Detected || side2Detected);
 
-  if (vehicleDetected) {
+  if (anyDetected) {
     lastDetectTime = now;
-    if (!alertActive) {
-      alertActive = true;
-      startAlertState(now);
-      Serial.println(F("ALERT: Vehicle near pothole! Sign raised, Red LED, Buzzer & OLED ON."));
+
+    // Determine which side triggered (if both trigger simultaneously, keep activeSide or default to SIDE_1)
+    AlertSide targetSide = activeSide;
+    if (side1Detected && !side2Detected) {
+      targetSide = SIDE_1;
+    } else if (side2Detected && !side1Detected) {
+      targetSide = SIDE_2;
+    } else if (targetSide == SIDE_NONE) {
+      targetSide = SIDE_1;
+    }
+
+    if (targetSide != activeSide) {
+      activateAlertForSide(targetSide, now);
+      if (targetSide == SIDE_1) {
+        Serial.println(F("ALERT: Side 1 vehicle detected! Servo +90 (180 deg)."));
+      } else {
+        Serial.println(F("ALERT: Side 2 vehicle detected! Servo -90 (0 deg)."));
+      }
     }
   }
 
-  if (alertActive) {
+  if (activeSide != SIDE_NONE) {
     // Keep pulsing the buzzer while warning is active
     if (now - lastBeepTime >= BEEP_INTERVAL_MS) {
       lastBeepTime = now;
@@ -180,11 +220,10 @@ void loop() {
       digitalWrite(BUZZER_PIN, buzzerOn ? HIGH : LOW);
     }
 
-    // Return to normal state once vehicle has cleared for ALERT_HOLD_MS
-    if (!vehicleDetected && (now - lastDetectTime >= ALERT_HOLD_MS)) {
-      alertActive = false;
+    // Return to normal state once both sensors are clear for ALERT_HOLD_MS
+    if (!anyDetected && (now - lastDetectTime >= ALERT_HOLD_MS)) {
       setNormalState();
-      Serial.println(F("NORMAL: Road clear. Sign lowered, Green LED ON."));
+      Serial.println(F("NORMAL: Road clear. Servo centered (90 deg), Green LED ON."));
     }
   }
 
